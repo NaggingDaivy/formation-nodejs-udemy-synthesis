@@ -1,0 +1,496 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8]{inputenc} % co dag e du f i c h i e r s o u r c e
+\usepackage[T1]{fontenc} % co dag e d e s f o n t e s TeX
+\usepackage[francais]{babel} % document en f r a n ç a i s
+\usepackage{listings} % afficher du code
+
+
+  
+\begin{document}
+\section{\underline{Les fondamentaux de Node.js}}
+Ce chapitre expliquera les bases de Node.js, afin de pouvoir commencer un projet Node from scratch.
+\subsection{Utilisation de npm}
+\textbf{npm}, ou \emph{node package manager}, est, comme son nom l'idnique, l'utilitaire de paquet de node. Avec celui-ci, il est possible de faire beaucoup de choses.
+
+
+\subsubsection{Intialiser le projet}
+La première chose à faire est d'initialiser le répertoire courant où l'on va utiliser Node.js
+\begin{lstlisting}[language=bash, frame=single]
+    $ npm init --yes
+\end{lstlisting}
+Celui-ci va générer un fichier \emph{package.json} qui à lui seul va contenir toute la configuration du projet. Celui-ci sera généré par défaut avec le contenu suivant :
+\begin{lstlisting}[frame=single, caption={package.json}, captionpos=b]
+{
+    "name": "playground",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" 
+        && exit 1"
+    },
+    "author": "",
+    "license": "ISC"
+}
+\end{lstlisting}
+
+Voic le package.json d'un autre projet pour illustrer de façon plus claire le contenu qu'il peut y avoir :
+
+\begin{lstlisting}[frame=single, caption={package.json}, captionpos=b]
+{
+    "name": "node-chat-app",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "node server/server.js",
+        "test": "jest --verbose",
+        "test-watch": "nodemon --exec \"npm test\""
+    },
+    "engines": {
+        "node": "8.9.3"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "express": "^4.16.2",
+        "moment": "^2.20.1",
+        "socket.io": "^2.0.4"
+    },
+    "devDependencies": {
+        "jest": "^22.0.4",
+        "nodemon": "^1.14.8"
+    }
+} 
+\end{lstlisting}
+Voici une petite description des attributs :
+\begin{itemize}
+    \item \textbf{"scripts"} indique les scripts que l'on peut utiliser avec la commande \emph{npm}. Par exemple, taper :
+    \begin{lstlisting}[language=bash, frame=single]
+        $ npm test
+    \end{lstlisting}
+       lancera \emph{Jest} qui vérifiera si tout les test unitaires se sont déroulés sans soucis.
+       Egalement, taper :
+    \begin{lstlisting}[language=bash, frame=single]
+        $ npm run test-watch
+    \end{lstlisting}
+    lancera \emph{nodemon} qui effectuera les test à chaque modification du fichier source, sans qu'on ait besoin de retaper \emph{npm test} à chaque fois.
+    
+    \item \textbf{"dependencies"} contient les packages installés qui serviront pour l'application.
+    \item \textbf{"devDependencies"} contient les packages installés qui serviront UNIQUEMENT pour le développement.
+\end{itemize}
+
+
+\subsection{Getting input from user}
+\subsubsection{process.argv}
+Il est possible de récupérer les input de l'utilisateur qui sont passés en argument à une application node. Par exemple, imaginons un script \emph{app.js} où l'on veut passer l'argument \emph{add}.
+
+\begin{lstlisting}[language=bash,frame=single]
+    $ node app.js add
+\end{lstlisting}
+Il est possible de récupérer celui-ci dans \emph{app.js} de la manière suivante :
+
+\begin{lstlisting}[language=bash,frame=single, caption={app.js}, captionpos=b]
+    var command = process.argv[2]; 
+    // argv[0]=node, argv[1]=app.js, argv[2]=add
+\end{lstlisting}
+
+Ainsi, on pourrait très bien avec Node.js, créer des utilitaire de commandes. Pour nous aider dans cette tâche afin que cela soit plus facile, on peut utiliser le module \emph{yargs}.
+
+\subsubsection{yargs}
+Yargs permet de créer facilement des lignes de commande, en passant des arguments et en générant une interface texte plaisante. Voici un exemple qui permet d'ajouter, retirer et consulter des notes : 
+
+\begin{lstlisting}[frame=single, caption={note.js}, captionpos=b]
+const fs = require('fs');
+const _ = require('lodash');
+const yargs = require('yargs');
+
+const notes = require('./notes.js');
+
+const titleOptions = {
+  describe: 'Title of note',
+  demand: true,
+  alias: 't'
+}
+
+const bodyOptions = {
+  describe: 'Body of the note',
+  demand: true,
+  alias: 'b'
+}
+
+const argv = yargs
+  .command('add', 'Add a new note', {
+    title: titleOptions,
+    body: bodyOptions
+
+  })
+  .command('list', 'List all notes')
+  .command('read', 'Read a note', {
+    title: titleOptions
+  })
+  .command('remove', 'Remove a note', {
+    title: titleOptions
+  })
+  .help()
+  .argv;
+var command = argv._[0];
+
+if (command === 'add') {
+  var note = notes.addNote(argv.title, argv.body);
+  if (note) {
+    console.log('Note created');
+    notes.logNote(note);
+  } else {
+    console.log('Note title taken');
+  }
+} else if (command === 'list') {
+    var allNotes = notes.getAll();
+    console.log(`Printing ${allNotes.length} note(s).`);
+    allNotes.forEach((note) => notes.logNote(note));
+  } else if (command === 'read') {
+    var note = notes.getNote(argv.title);
+    if (note) {
+      console.log('Note found');
+      notes.logNote(note);
+    } else {
+      console.log('Note not found');
+    }
+  } else if (command === 'remove') {
+    var noteRemoved = notes.removeNote(argv.title);
+    var message = noteRemoved ? 'Note was removed' : 
+    'Note not found';
+    console.log(message);
+  } else {
+    console.log('Command not recognized');
+  }
+\end{lstlisting}
+
+On pourra ajouter une note de la manière suivante :
+\begin{lstlisting}[language=bash,frame=single]
+    $ node note.js add -t="monTitre" -b="monTexte" 
+\end{lstlisting}
+
+\section{Arrow function VS function}
+\subsection{Arrow function}
+Les \emph{arrow function} sont une nouveauté d'ES6. Imaginons une fonction \emph{sayHi()}, elle s'écrirait ainsi :
+
+\begin{lstlisting}[frame=single]
+    sayHi() => {
+        console.log('Hi!');
+    }  
+\end{lstlisting}
+Les arrow function :  :
+\begin{itemize}
+    \item Ne peuvent \textbf{PAS} faire un \emph{bind}  le mot clé \textbf{\emph{this}} 
+    \item Ne peuvent \textbf{PAS} rendre \textbf{\emph{d'arguments optionnels}} (il ne contiendra que les variables des args globaux)
+\end{itemize}
+Exemple : 
+\begin{lstlisting}[frame=single]
+var user = {
+    name: 'Daivy',
+    sayHiArrow: () => { 
+        console.log(arguments);// will print global args 
+        variable
+        console.log(`Hi. I'm ${this.name}`);//undefined
+    }
+}
+
+user.sayHiArrow();
+\end{lstlisting}
+Pour pallier au manquement de \emph{this} et des \emph{arguments}, il faudra utiliser les fonctions JS classiques.
+
+\subsection{function}
+Contrairement aux arrow function, les function :
+\begin{itemize}
+    \item \textbf{Peuvent} faire un \emph{bind}  le mot clé \textbf{\emph{this}} 
+    \item \textbf{Peuvent} prendre \textbf{\emph{d'arguments optionnels}}
+\end{itemize}
+\begin{lstlisting}[frame=single]
+    var user = {
+    name: 'Daivy',
+  
+    sayHiAlt() { 
+        console.log(arguments);
+        // {'0': 1, '1': 2, '2': 3 }
+        console.log(`Hi. I'm ${this.name}`);// Daivy
+    }
+}
+user.sayHiAlt(1, 2, 3);
+\end{lstlisting}
+
+\section{Callback VS Promises VS async/await}
+\subsection{Callback}
+Une \emph{callback} est une fonction comme les autres. Sa particularité est qu'elle est appelée par une autre qui l'a reçu en tant que paramètre. Voici une fonction qui reçoit une fonction en paramètre:
+\begin{lstlisting} [frame=single]
+var getUser = (id, callback) => {
+    var user = {
+        id: id,
+        name: 'Vikram'
+    };
+
+    setTimeout(() => {
+        callback(user);
+    }, 2000);
+
+};
+
+console.log("Starting app");
+
+getUser(31, (userObject) => {
+    console.log(userObject);
+
+});
+    
+\end{lstlisting} 
+
+\subsection{Promise}
+Une promise est un objet représentant une valeur qui pourrait être retournée par l'exécution d'une opération unique (souvent asynchrone). Elle peut donc avoir trois états ; en attente de résultat, complétée avec succès ou en échec. Une fois complétée ou en échec, une promise ne peut plus changer d'état. Les Promises ont été conçue pour faciliter la gestion de code asynchrone, là où un code avec des callback devenait très vite illisible.
+Si l'on veut créer une fonction asynchrone, il faut retourner une Promise : 
+
+\begin{lstlisting}[frame=single]
+var asyncAdd = (a, b) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (typeof a === 'number' 
+            && typeof b === 'number') {
+                resolve(a + b);  //resolve la promise
+               
+            } else
+                reject('Arguments must be numbers');
+                // reject la promise
+
+        }, 1500);
+
+    });
+}
+
+asyncAdd(3, 5).then((sum) => {
+    console.log(sum);
+    return asyncAdd(sum, 33);
+}).then((sum) => {
+    console.log(sum);
+}).catch((errorMessage) => {
+    console.log('Error :', errorMessage);
+});
+    
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{then} verra son contenu s'exécuter si la promesse est résolue.
+    \item \textbf{catch} verra con contenu s'exécuter si la promesse est rejetée.
+\end{itemize}
+
+\subsection{async/await}
+async et await sont de nouvelles fonctionnalités d'ES7 qui permettent de rendre le code encore plus lisible (en effet, celui-ci parait "synchrone"). Nous pouvons consdiérer qu'ils sont des évolutions des promises.
+
+Il suffit d'indiquer par le mot clé \emph{async} que la fonction sera asynchrone ; à l'intérieur de cette fonction, le mot clé \emph{await} permet d'indiquer qu'on est en attente qu'une fonction asynchrone se termine: 
+\begin{itemize}
+    \item \textbf{resolved :} retourne ou non une valeur
+    \item  \textbf{reject :} retournera un \emph{throw new Error ("Message to print")}
+    
+\end{itemize}
+
+
+
+
+\underline{Remarques :}
+\begin{itemize}
+    \item Les fonctions async retournent TOUJOURS une Promise.
+    \item \emph{await} doit TOUJOURS se trouver dans une fonction \emph{async} : il ne peut pas être utilisé tout seul.
+    
+\end{itemize}
+
+
+
+\begin{lstlisting}[frame=single]
+    const axios = require('axios');
+
+const getExchangeRate = async (from, to) => {
+
+    try {
+        var response = await axios.get(
+            `https://api.fixer.io/latest?base=${from}`);
+        const rate = response.data.rates[to];
+
+        if(rate)
+            return rate;
+        else 
+            throw new Error();
+        
+    } catch (error) {
+        throw new Error(`Unable to get exchange rate 
+        for ${from} and ${to}.`);    
+    }
+}
+
+const getCountries =  async (currencyCode) => {
+
+    try {
+        var response = await axios.get(
+            `https://restcountries.eu/rest/v2/currency/
+            ${currencyCode}`);
+        return  response.data.map((country) 
+        => country.name);
+        
+    } catch (error) {
+        throw new Error(`Unabled to get countries 
+        that has ${currencyCode}`);
+    }
+};
+
+
+
+
+//create convertCurrencyAlt as async funciton
+
+const convertCurrencyAlt = async(from, to, amount) => {
+    var countries = await getCountries(to);
+    var rate = await getExchangeRate(from, to);
+    const exchangedAmount = amount * rate;
+
+    return `${amount} ${from} is worth 
+    ${exchangedAmount} ${to}. ${to} can be used in the 
+    folowwing countries : ${countries.join(',')}`;
+
+}
+
+
+convertCurrencyAlt('USD','EUR',100).then((status) => {
+    console.log(status);
+}).catch((err) => {
+    console.log(err.message);
+})
+\end{lstlisting}
+
+\section{Web server}
+\subsection{Express}
+Express est un framework d'application web Node.js minimal et flexible qui fournit un ensemble de fonctionnalités robustes pour développer des applications Web et mobiles. Il facilite le développement rapide des applications Web basées sur les nœuds. 
+
+Voici quelques-unes des principales caractéristiques du framework Express: 
+\begin{itemize}
+    \item Il permet de configurer des middlewares pour répondre aux requêtes HTTP.
+    \item Il peut définir une table de routage qui est utilisée pour effectuer différentes actions basées sur la méthode HTTP et l'URL.
+    \item Il permet de rendre des pages HTML dynamique en fonction de la transmission d'arguments aux modèles (view engine)
+\end{itemize}
+
+\subsubsection{Routing}
+Le routing fait référence à déterminer comment une application répond à une demande d'un client vers un point de terminaison particulier, qui est un URI (ou un chemin) et une méthode de requête HTTP spécifique (GET, POST, etc.).
+
+Chaque route peut avoir une ou plusieurs fonctions de gestionnaire, qui sont exécutées lorsque la route est reconnue.
+
+Une route prend la structure  suivant : 
+
+\begin{lstlisting}[frame=single]
+app.METHOD(PATH, HANDLER) {
+    ...
+}
+    
+\end{lstlisting}
+
+\underline{Where:}
+\begin{itemize}
+    \item \emph{app} is an instance of express.
+    \item \emph{METHOD} is an HTTP request method, in lowercase.
+    \item \emph{PATH} is a path on the server.
+    \item\emph{HANDLER} is the function executed when the route is matched.
+\end{itemize}
+Exemple:
+\begin{lstlisting}[frame=single]
+const express = require('express');
+
+var app = express();
+
+// GET method route
+app.get('/', function (req, res) {
+  res.send('GET request to the homepage')
+})
+
+// POST method route
+app.post('/', function (req, res) {
+  res.send('POST request to the homepage')
+})
+\end{lstlisting}
+
+
+  
+\subsubsection{Handlebars}
+Handlebars est un "template engine" (moteur de modèle), qui peut être utilisé pour générer des pages HTML dynamiques. Pour l'utiliser, il suffit d'installer le module en tapant :
+\begin{lstlisting}[language=bash,frame=single]
+    $ npm i hbs  
+\end{lstlisting}
+puis de configurer Express : 
+\begin{lstlisting}[frame=single]
+const express = require('express');
+const hbs = require('hbs');
+
+var app = express();
+hbs.registerPartials(__dirname + '/views/partials') 
+// indique l'endroit des partials (footer, header,
+template, etc)
+
+app.set('views', './views'); //dossier des fichier .hbs
+app.set('view engine', 'hbs') //utilisation de hbs
+app.use(express.static(__dirname + '/public'));
+// dossier des fichiers HTML
+
+hbs.registerHelper('screamIt', (text) => 
+text.toUpperCase()); //fonction statique qui peut etre 
+utilisee par tout les hbs
+
+app.get("/", (req, res) => { // res 
+
+    res.render('home.hbs', {
+        pageTitle: 'Home Page',
+        welcomeMessage: "You are to the home page !",
+    });
+});
+\end{lstlisting}
+\textbf{views :} Ce sont les fichier .hbs qui seront utilisés comme page dynamiques : elles  seront compilées en HTML à l'exécution.
+
+Exemple:
+\begin{lstlisting}[language=html,frame=single,caption={home.hbs},captionpos=b]
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>{{pageTitle}}</title> {{-- args passes en 
+    ref --}}
+    
+</head>
+
+<body>
+    {{> header}} {{!-- partial --}}
+    <p>{{screamIt welcomeMessage}}</p>
+
+    {{> footer}} {{!-- partial --}}
+
+</body>
+
+</html>
+\end{lstlisting}
+
+\textbf{partials :} Ce sont les fichier .hbs qui seront utilisés comme template (un header ou un footer, par exemple) pour d'autres fichiers .hbs
+\begin{lstlisting}[language=html,frame=single,caption={header.hbs},captionpos=b]
+<header>
+    <h1>{{pageTitle}}</h1>
+    <p><a href="/">Home</a></p>
+    <p><a href="/about">About</a></p>
+    <p><a href="/projects">Projects</a></p>
+</header>
+\end{lstlisting}
+    
+
+\section{GitHub et clés SSH}
+\section{Déploiement sur Heroku}
+\section{Tests unitaires avec Jest}
+\subsection{Express}
+\subsection{Mock functions}
+
+
+
+
+
+\end{document}
